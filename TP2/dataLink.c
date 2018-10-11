@@ -69,7 +69,7 @@ if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
 
 
 int llopenTransmitter(int fd){
-printf("maria\n");
+
  write(fd, SET, 5);
 	//RECEIVE UA
     unsigned int state=0;
