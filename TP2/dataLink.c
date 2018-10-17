@@ -75,6 +75,8 @@ int setTermios(int fd){
 
     struct termios oldtio, newtio;
 
+    link_layer.oldTermios = oldtio;
+
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
         perror("tcgetattr");
         exit(-1);
@@ -172,8 +174,9 @@ int llopenTransmitter(int fd){
         printf("dataLink - llopen: error reading");
         exit(-1);
       }
-        state = stateMachine(c, state, SET);
+        state = stateMachine(c, state, UA);
     }
+    printf("UA RECEIVED\n");
 
   } while(timeOut && count < link_layer.transmissions);
 }
@@ -211,7 +214,7 @@ int llclose(int fd){
   if(llcloseReceiver(fd) < 0)
   return -1;
 
-  if ( tcsetattr(fd, TCSANOW, &link_layer.portSettings) == -1) {
+  if ( tcsetattr(fd, TCSANOW, &link_layer.oldTermios) == -1) {
     perror("tcsetattr");
     exit(-1);
   }
@@ -232,6 +235,7 @@ int llcloseTransmitter(int fd){
       printf("dataLink - llclose: error writting DISC");
       return -1;
     }
+    printf("DISC SENT!\n");
 
     timeOut = false;
     alarm(link_layer.timeout);
@@ -244,12 +248,16 @@ int llcloseTransmitter(int fd){
       }
         state = stateMachine(c, state, DISC);
     }
+    printf("RECEIVED DISC\n");
 
   } while(timeOut && count < link_layer.transmissions);
 
   if(write(fd, UA, 5) != 5){
     printf("dataLink - llclose: error writting UA");
   }
+
+  printf("UA SENT\n");
+
   return 0;
 }
 
@@ -268,10 +276,14 @@ int llcloseReceiver(int fd){
 
    }
 
+   printf("DISC RECEIVED!\n");
+
    if(write(fd, DISC, 5) != 5){
      printf("dataLink - llclose: error writing DISC");
      exit(-1);
    }
+
+   printf("DISC SENT!\n");
 
    state = 0;
 
@@ -283,6 +295,8 @@ int llcloseReceiver(int fd){
 
      state = stateMachine(c, state, UA);
   }
+  printf("UA RECEIVED\n");
+
    return 0;
 }
 
@@ -314,7 +328,6 @@ int main(int argc, char** argv)
 
     initDataLinkStruct(TRANSMISSIONS, TIMEOUT, BAUDRATE);
 
-  	//setTermios(fd);
   	llopen(0,mode);
     llclose(fd);
 

@@ -17,7 +17,7 @@ typedef struct {
   unsigned int timeout; //valor do temporizador: 1s
   unsigned int transmissions; //numero de tentativas em caso de falha
   status mode; //receiver or transmitter
-  struct termios portSettings;
+  struct termios oldTermios;
   int wrongPackets;
 }linkLayer;
 
