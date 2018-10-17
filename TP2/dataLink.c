@@ -8,9 +8,18 @@ volatile int STOP=FALSE;
 int timeOut = FALSE;
 int count = 0;
 
+void initDataLinkStruct(int transmissions, int timeOut, int baudRate){
+
+link_layer.transmissions = transmissions;
+link_layer.timeout = timeOut;
+link_layer.baudRate = baudRate;
+
+}
+
 void alarmHandler(int sig){
   timeOut = true;
   count ++;
+  printf("TIMED OUT\n");
 }
 
 int stateMachine(unsigned char c, int state, char * msg){
@@ -103,8 +112,6 @@ int setTermios(int fd){
 int llopen(int port, status mode){
       int fd;
 
-      link_layer.mode = mode; //receiver or transmitter
-
       switch (port) {
         case COM1:
         strcpy(link_layer.port, COM1_PORT);
@@ -133,7 +140,6 @@ int llopen(int port, status mode){
       if(llopenTransmitter(fd) <0)
       return -1;
 
-
       if(mode == RECEIVER)
       if(llopenReceiver(fd) < 0)
       return -1;
@@ -155,6 +161,7 @@ int llopenTransmitter(int fd){
       printf("dataLink - llopen: error writting SET");
       exit(-1);
     }
+    printf("SET sent\n");
 
     timeOut = false;
     alarm(link_layer.timeout);
@@ -304,6 +311,8 @@ int main(int argc, char** argv)
   }
   	else
   	printf("Usage: T or R to transitter/receiver mode");
+
+    initDataLinkStruct(TRANSMISSIONS, TIMEOUT, BAUDRATE);
 
   	//setTermios(fd);
   	llopen(0,mode);
