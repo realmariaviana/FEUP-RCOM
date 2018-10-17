@@ -118,6 +118,7 @@ int setTermios(int fd){
 int llopen(int port, status mode){
 
       int fd;
+      link_layer.mode = mode;
 
       switch (port) {
         case COM1:
@@ -143,7 +144,6 @@ int llopen(int port, status mode){
         printf("dataLink - llopen() - setTermios: error\n");
         return -1;
       }
-      link_layer.mode = mode;
 
       if(mode == TRANSMITTER)
       if(llopenTransmitter(fd) <0)
