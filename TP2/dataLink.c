@@ -1,8 +1,8 @@
 #include "dataLink.h"
 
-char SET[5] = {FLAG, A_SEND, C_SET, A_SEND ^ C_SET, FLAG};
-char UA[5] = {FLAG, A_SEND, C_UA, A_SEND ^ C_UA, FLAG};
-char DISC[5] ={FLAG, A_SEND, C_DISC, A_SEND ^ C_DISC, FLAG};
+  unsigned char SET[5] = {FLAG, A_SEND, C_SET, A_SEND ^ C_SET, FLAG};
+unsigned char UA[5] = {FLAG, A_SEND, C_UA, A_SEND ^ C_UA, FLAG};
+unsigned char DISC[5] ={FLAG, A_SEND, C_DISC, A_SEND ^ C_DISC, FLAG};
 
 volatile int STOP=FALSE;
 int timeOut = FALSE;
@@ -89,9 +89,13 @@ int setTermios(int fd){
 
       /* set input mode (non-canonical, no echo,...) */
       newtio.c_lflag = 0;
-
+      if(link_layer.mode == TRANSMITTER){
+      newtio.c_cc[VTIME]    = 5;   /* inter-character timer unused */
+      newtio.c_cc[VMIN]     = 0;  /* blocking read until 5 chars received */
+    }   else {
       newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-      newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
+      newtio.c_cc[VMIN]     = 1;
+    }
 
 
     /*
@@ -112,6 +116,7 @@ int setTermios(int fd){
   }
 
 int llopen(int port, status mode){
+
       int fd;
 
       switch (port) {
@@ -127,15 +132,14 @@ int llopen(int port, status mode){
         printf("data_link - llopen(): invalid port!\n");
         return -1;
       }
-        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY );
-            if (fd <0) {perror(link_layer.port); exit(-1); }
+        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY| O_NONBLOCK);
 
+            if (fd <0) {perror(link_layer.port);printf("ll open errror FD: %d\n", fd); exit(-1);   }
 
       if (setTermios(fd) != 0) {
         printf("dataLink - llopen() - setTermios: error\n");
         return -1;
       }
-
       link_layer.mode = mode;
 
       if(mode == TRANSMITTER)
@@ -164,10 +168,9 @@ int llopenTransmitter(int fd){
       exit(-1);
     }
     printf("SET sent\n");
-
     timeOut = false;
     alarm(link_layer.timeout);
-
+    sleep(1);
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
@@ -184,9 +187,8 @@ int llopenTransmitter(int fd){
 int llopenReceiver(int fd){
   unsigned char c;
   int state=0;
-
+//sleep(1);
   while(state!=5){
-
      if(read(fd, &c, 1) == -1){
        printf("dataLink - llopen: read error");
        exit(-1);
@@ -195,17 +197,17 @@ int llopenReceiver(int fd){
      state = stateMachine(c, state, SET);
 
    }
+   printf("SET RECEIVED\n");
 
    if(write(fd, UA, 5) != 5){
      printf("dataLink - llopen: error writing UA");
      exit(-1);
    }
-
+   printf("UA SENT\n");
    return 0;
 }
 
 int llclose(int fd){
-
   if(link_layer.mode == TRANSMITTER)
   if(llcloseTransmitter(fd) <0)
   return -1;
@@ -237,7 +239,7 @@ int llcloseTransmitter(int fd){
 
     timeOut = false;
     alarm(link_layer.timeout);
-
+  sleep(1);
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
@@ -255,8 +257,8 @@ int llcloseTransmitter(int fd){
   }
 
   printf("UA SENT\n");
-  sleep(2);
 
+  sleep(1);
   return 0;
 }
 
