@@ -227,8 +227,6 @@ int llcloseTransmitter(int fd){
   unsigned char c;
   int state = 0;
 
-  signal(SIGALRM, alarmHandler);
-
   do{
 
     if(write(fd, DISC, 5) != 5){
@@ -257,6 +255,7 @@ int llcloseTransmitter(int fd){
   }
 
   printf("UA SENT\n");
+  sleep(2);
 
   return 0;
 }
@@ -328,7 +327,7 @@ int main(int argc, char** argv)
 
     initDataLinkStruct(TRANSMISSIONS, TIMEOUT, BAUDRATE);
 
-  	llopen(0,mode);
+  	fd = llopen(0,mode);
     llclose(fd);
 
   	return 0;
