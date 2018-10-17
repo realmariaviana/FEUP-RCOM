@@ -132,7 +132,10 @@ int llopen(int port, status mode){
         printf("data_link - llopen(): invalid port!\n");
         return -1;
       }
-        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY| O_NONBLOCK);
+          if(link_layer.mode == TRANSMITTER)
+        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY | O_NONBLOCK);
+          else
+          fd = open(link_layer.port, O_RDWR | O_NOCTTY);
 
             if (fd <0) {perror(link_layer.port);printf("ll open errror FD: %d\n", fd); exit(-1);   }
 
@@ -160,7 +163,7 @@ int llopenTransmitter(int fd){
   int state = 0;
 
   signal(SIGALRM, alarmHandler);
-
+  sleep(1);
   do{
 
     if(write(fd, SET, 5) != 5){
