@@ -118,9 +118,9 @@ int llopen(int port, status mode){
         printf("data_link - llopen(): invalid port!\n");
         return -1;
       }
+        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY );
+            if (fd <0) {perror(link_layer.port); exit(-1); }
 
-      fd = open(link_layer.port, O_RDWR | O_NOCTTY );
-      if (fd <0) {perror(link_layer.port); exit(-1); }
 
       if (setTermios(fd) != 0) {
         printf("dataLink - llopen() - setTermios: error\n");
@@ -305,12 +305,8 @@ int main(int argc, char** argv)
   	else
   	printf("Usage: T or R to transitter/receiver mode");
 
-
-  	   fd = open(argv[1], O_RDWR | O_NOCTTY );
-      if (fd <0) {perror(argv[1]); exit(-1); }
-
-  	setTermios(fd);
-  	llopen(fd,mode);
+  	//setTermios(fd);
+  	llopen(0,mode);
     llclose(fd);
 
   	return 0;
