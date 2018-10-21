@@ -12,6 +12,9 @@
 #define FALSE 0
 #define TRUE 1
 
+#define ESC 0x7D
+#define BYTE_STUFF 0x20
+
 #define FLAG 0x7E
 
 #define A_SEND 0x03
@@ -21,5 +24,12 @@
 #define C_DISC 0x0B
 
 #define SET_BCC 0x00
+
+#define RR 0x05
+#define REJ 0x01
+
+#define WAIT 4000
+
+#define SFRAMELEN 5
 
 typedef enum {TRANSMITTER, RECEIVER} status;

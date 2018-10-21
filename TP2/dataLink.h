@@ -23,12 +23,22 @@ typedef struct {
 
 linkLayer link_layer;
 
+void initDataLinkStruct(int transmissions, int timeOut, int baudRate);
 void alarmHandler(int sig);
 int stateMachine(unsigned char c, int state, char * msg);
 int setTermios(int fd);
 int llopen(int port, status mode);
 int llopenTransmitter(int fd);
 int llopenReceiver(int fd);
+int llwrite(int fd, char * packet, int length, int * rejCounter);
+unsigned char createIFrame(int *frameLength, char *packet, int packetLength);
+int writePacket(int fd, unsigned char* buffer, int bufLength);
+int readPacket(int fd, unsigned char* frame, int frameLength);
+bool frameSCorrect(unsigned char *response, int responseLength, unsigned char C);
+bool frameICorrect(unsigned char * frame);
+unsigned char *createSFrame(char ctrlByte);
+unsigned char *stuff(char *packet, int *packetLength);
+unsigned char *destuff(char *packet, int *packetLength);
 int llclose(int fd);
 int llcloseTransmitter(int fd);
 int llcloseReceiver(int fd);
