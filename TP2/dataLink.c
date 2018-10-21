@@ -1,12 +1,13 @@
 #include "dataLink.h"
 
-  unsigned char SET[5] = {FLAG, A_SEND, C_SET, A_SEND ^ C_SET, FLAG};
+unsigned char SET[5] = {FLAG, A_SEND, C_SET, A_SEND ^ C_SET, FLAG};
 unsigned char UA[5] = {FLAG, A_SEND, C_UA, A_SEND ^ C_UA, FLAG};
 unsigned char DISC[5] ={FLAG, A_SEND, C_DISC, A_SEND ^ C_DISC, FLAG};
 
-volatile int STOP=FALSE;
-int timeOut = FALSE;
+//volatile int STOP=FALSE;
+bool timeOut = false;
 int count = 0;
+bool ignore = false;
 
 void initDataLinkStruct(int transmissions, int timeOut, int baudRate){
 
@@ -212,8 +213,10 @@ int llopenReceiver(int fd){
 
 int llwrite(int fd, char * packet, int length, int * rejCounter){
   int frameLength;
-
+  int responseLength;
+  unsigned char response[255];
   unsigned char *frame = createIFrame(&frameLength, packet, length);
+  count = 0;
 
   do{
 
@@ -225,14 +228,49 @@ int llwrite(int fd, char * packet, int length, int * rejCounter){
     timeOut = false;
     alarm(link_layer.timeout);
 
+    while(!timeOut){
+      usleep(WAIT*1000);
 
+      if(readPacket(fd, response, &responseLength) == 0){
+        if(frameSCorrect(response,responseLength,RR)){
+          alarm(0);
+          link_layer.sequenceNumber =! link_layer.sequenceNumber;
+          return 0;
+        }
+
+     if(frameSCorrect(response,responseLength,REJ)){
+       alarm(0);
+       count=0;
+       timeOut = true;
+      (* rejCounter)++;
+      }
+     }
+    }
 
   }while(timeOut && count < link_layer.transmissions);
 
   return -1;
 }
 
-unsigned char createIFrame(int *frameLength, char *packet, int packetLength){
+int llread(int fd, unsigned char *packet){
+  int frameLength;
+  unsigned char frame[256];
+
+  do{
+
+    if(readPacket(fd, frame, &frameLength) < 0){
+      printf("llread: error reading frame");
+      exit(-1);
+    }
+
+  } while(!frameICorrect(frame));
+
+  unsigned char expected;
+
+
+}
+
+unsigned char *createIFrame(int *frameLength, char *packet, int packetLength){
   unsigned char *stuffPacket = stuff(packet, &packetLength);
   *frameLength = packetLength + 5; //packetLength + 5 flags
   unsigned char *frame = (unsigned char *)malloc(*frameLength * sizeof(char));
@@ -245,7 +283,7 @@ unsigned char createIFrame(int *frameLength, char *packet, int packetLength){
   memcpy(frame + 4, stuffPacket, packetLength); //copies stuffed packet to frame
   frame[*frameLength-1] = FLAG; //frame[4] = FLAG;
 
-  return *frame;
+  return frame;
 }
 
 int writePacket(int fd, unsigned char* buffer, int bufLength){
@@ -267,8 +305,38 @@ int writePacket(int fd, unsigned char* buffer, int bufLength){
   return 0;
 }
 
-int readPacket(int fd, unsigned char* frame, int frameLength){
-return 0;
+int readPacket(int fd, unsigned char* frame, int *frameLength){
+
+  bool STOP = false;
+  char buf;
+  *frameLength = 0;
+  int flag_count = 0;
+
+  while (!STOP) {
+    if (read(fd, &buf, 1) >0) {
+      if (buf == FLAG) {
+        if(!ignore){
+        flag_count++;
+
+        if(flag_count == 2)
+        STOP = true;
+
+        frame[*frameLength] = buf;
+        (*frameLength)++;
+      }else
+        ignore = false;
+
+      }else {
+        if(flag_count>0) {
+          frame[*frameLength] = buf;
+          (*frameLength)++;
+        }
+      }
+    }else
+    return -1;
+  }
+
+  return 0;
 }
 
 bool frameSCorrect(unsigned char *response, int responseLength, unsigned char C){
@@ -302,6 +370,20 @@ bool frameICorrect(unsigned char * frame){
     return true;
     else
       return false;
+}
+
+unsigned char getBCC2(const unsigned char* buf, unsigned int size) {
+	unsigned char BCC2 = buf[0];
+
+	unsigned int i;
+	for (i = 1; i < size; ++i)
+		BCC2 ^= buf[i];
+
+	return BCC2;
+}
+
+bool valid_sequence_number(char ctrlByte) {
+  return (ctrlByte == (link_layer.sequenceNumber << 6)); //???????????
 }
 
 unsigned char *stuff(char *packet, int *packetLength){

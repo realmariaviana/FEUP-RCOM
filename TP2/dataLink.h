@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "utils.h"
+#include "utilities.h"
 
 typedef struct {
   char port[20]; //dispositivo /dev/ttySx, x = 0, 1
@@ -31,11 +31,14 @@ int llopen(int port, status mode);
 int llopenTransmitter(int fd);
 int llopenReceiver(int fd);
 int llwrite(int fd, char * packet, int length, int * rejCounter);
-unsigned char createIFrame(int *frameLength, char *packet, int packetLength);
+int llread(int fd, unsigned char *packet);
+unsigned char *createIFrame(int *frameLength, char *packet, int packetLength);
 int writePacket(int fd, unsigned char* buffer, int bufLength);
-int readPacket(int fd, unsigned char* frame, int frameLength);
+int readPacket(int fd, unsigned char* frame, int *frameLength);
 bool frameSCorrect(unsigned char *response, int responseLength, unsigned char C);
 bool frameICorrect(unsigned char * frame);
+unsigned char getBCC2(const unsigned char* buf, unsigned int size);
+bool valid_sequence_number(char ctrlByte);
 unsigned char *createSFrame(char ctrlByte);
 unsigned char *stuff(char *packet, int *packetLength);
 unsigned char *destuff(char *packet, int *packetLength);
