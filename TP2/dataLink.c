@@ -90,13 +90,13 @@ int setTermios(int fd){
 
       /* set input mode (non-canonical, no echo,...) */
       newtio.c_lflag = 0;
-      if(link_layer.mode == TRANSMITTER){
-      newtio.c_cc[VTIME]    = 5;   /* inter-character timer unused */
+      //if(link_layer.mode == TRANSMITTER){
+      newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
       newtio.c_cc[VMIN]     = 0;  /* blocking read until 5 chars received */
-    }   else {
-      newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-      newtio.c_cc[VMIN]     = 1;
-    }
+    // }   else {
+    //   newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    //   newtio.c_cc[VMIN]     = 0;
+    // }
 
 
     /*
@@ -134,10 +134,11 @@ int llopen(int port, status mode){
         printf("data_link - llopen(): invalid port!\n");
         return -1;
       }
-          if(link_layer.mode == TRANSMITTER)
-        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY | O_NONBLOCK);
-          else
-          fd = open(link_layer.port, O_RDWR | O_NOCTTY);
+        //  if(link_layer.mode == TRANSMITTER){
+        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY);
+            // printf("blocks on open\n");}
+        //  else
+      //    fd = open(link_layer.port, O_RDWR | O_NOCTTY);
 
             if (fd <0) {perror(link_layer.port);printf("ll open errror FD: %d\n", fd); exit(-1);   }
 
@@ -164,7 +165,7 @@ int llopenTransmitter(int fd){
   int state = 0;
 
   signal(SIGALRM, alarmHandler);
-  sleep(1);
+  //sleep(1);
   do{
 
     if(write(fd, SET, 5) != 5){
@@ -174,7 +175,7 @@ int llopenTransmitter(int fd){
     printf("SET sent\n");
     timeOut = false;
     alarm(link_layer.timeout);
-    sleep(1);
+   sleep(1);
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
@@ -479,7 +480,7 @@ int llcloseTransmitter(int fd){
 
     timeOut = false;
     alarm(link_layer.timeout);
-  sleep(1);
+    sleep(1);
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
