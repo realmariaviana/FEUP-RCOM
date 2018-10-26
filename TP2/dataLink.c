@@ -3,11 +3,14 @@
 unsigned char SET[5] = {FLAG, A_SEND, C_SET, A_SEND ^ C_SET, FLAG};
 unsigned char UA[5] = {FLAG, A_SEND, C_UA, A_SEND ^ C_UA, FLAG};
 unsigned char DISC[5] ={FLAG, A_SEND, C_DISC, A_SEND ^ C_DISC, FLAG};
+unsigned char UA_ALT[5] = {FLAG, A_ALT, C_UA, A_ALT ^ C_UA, FLAG};
+unsigned char DISC_ALT[5] ={FLAG, A_ALT, C_DISC, A_ALT ^ C_DISC, FLAG};
 
 //volatile int STOP=FALSE;
 bool timeOut = false;
 int count = 0;
 bool ignore = false;
+
 
 void initDataLinkStruct(int transmissions, int timeOut, int baudRate){
 
@@ -17,13 +20,14 @@ void initDataLinkStruct(int transmissions, int timeOut, int baudRate){
 
 }
 
+
 void alarmHandler(int sig){
   timeOut = true;
   count ++;
   printf("TIMED OUT\n");
 }
 
-int stateMachine(unsigned char c, int state, char * msg){
+int stateMachine(unsigned char c, int state, unsigned char * msg){
   switch (state) {
 
     case 0:
@@ -76,12 +80,12 @@ int setTermios(int fd){
 
     struct termios oldtio, newtio;
 
-    link_layer.oldTermios = oldtio; //saves old termios structure to undo change in the end
-
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
         perror("tcgetattr");
         exit(-1);
       }
+
+      link_layer.oldTermios = oldtio; //saves old termios structure to undo change in the end
 
       bzero(&newtio, sizeof(newtio));
       newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
@@ -117,7 +121,6 @@ int setTermios(int fd){
   }
 
 int llopen(int port, status mode){
-
       int fd;
       link_layer.mode = mode;
 
@@ -147,9 +150,11 @@ int llopen(int port, status mode){
         return -1;
       }
 
-      if(mode == TRANSMITTER)
+      if(mode == TRANSMITTER){
+
       if(llopenTransmitter(fd) <0)
       return -1;
+    }
 
       if(mode == RECEIVER)
       if(llopenReceiver(fd) < 0)
@@ -165,21 +170,21 @@ int llopenTransmitter(int fd){
   int state = 0;
 
   signal(SIGALRM, alarmHandler);
-  //sleep(1);
+  //
   do{
 
     if(write(fd, SET, 5) != 5){
-      printf("dataLink - llopen: error writting SET");
+      printf("dataLink - llopen: error writting SET\n");
       exit(-1);
     }
     printf("SET sent\n");
     timeOut = false;
     alarm(link_layer.timeout);
-   sleep(1);
+
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
-        printf("dataLink - llopen: error reading");
+        printf("dataLink - llopen: error reading\n");
         exit(-1);
       }
         state = stateMachine(c, state, UA);
@@ -187,15 +192,16 @@ int llopenTransmitter(int fd){
     printf("UA RECEIVED\n");
 
   } while(timeOut && count < link_layer.transmissions);
+  return 0;
 }
 
 int llopenReceiver(int fd){
   unsigned char c;
   int state=0;
-  //sleep(1);
+
   while(state!=5){
      if(read(fd, &c, 1) == -1){
-       printf("dataLink - llopen: read error");
+       printf("dataLink - llopen: read error\n");
        exit(-1);
      }
 
@@ -205,7 +211,7 @@ int llopenReceiver(int fd){
    printf("SET RECEIVED\n");
 
    if(write(fd, UA, 5) != 5){
-     printf("dataLink - llopen: error writing UA");
+     printf("dataLink - llopen: error writing UA\n");
      exit(-1);
    }
    printf("UA SENT\n");
@@ -260,15 +266,21 @@ int llread(int fd, unsigned char *packet){
   do{
 
     if(readPacket(fd, frame, &frameLength) < 0){
-      printf("llread: error reading frame");
+      printf("llread: error reading frame\n");
       exit(-1);
     }
+    printf("%d\n", frame[0]);
+    printf("%d\n", frame[1]);
+    printf("%d\n", frame[2]);
+    printf("%d\n", frame[3]);
+    printf("%d\n", frame[4]);
+    printf("%d\n", frame[5]);
+    printf("%d\n", frame[6]);
+    printf("%d\n", frame[7]);
 
   } while(!frameICorrect(frame));
 
-  unsigned char expected;
-
-
+  return 0;
 }
 
 unsigned char *createIFrame(int *frameLength, char *packet, int packetLength){
@@ -411,10 +423,15 @@ unsigned char *stuff(char *packet, int *packetLength){
   //Fazer stuff
   for(i = 0; i < *packetLength; i++){
 
-    if(packet[i] == FLAG || packet[i] == ESC){
+    if(packet[i] == FLAG){
       stuffed[j] = ESC;
-      stuffed[++j] = packet[i] ^ BYTE_STUFF;
-    } else{
+      stuffed[++j] = 0x5E;
+    }
+    else if(packet[i] == ESC){
+      stuffed[j] = ESC;
+      stuffed[++j] = 0x5D;
+    }
+    else{
       stuffed[j] = packet[i];
       j++;
     }
@@ -473,33 +490,33 @@ int llcloseTransmitter(int fd){
   do{
 
     if(write(fd, DISC, 5) != 5){
-      printf("dataLink - llclose: error writting DISC");
+      printf("dataLink - llclose: error writting DISC\n");
       return -1;
     }
     printf("DISC SENT!\n");
 
     timeOut = false;
     alarm(link_layer.timeout);
-    sleep(1);
+
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
-        printf("dataLink - llclose: error reading");
+        printf("dataLink - llclose: error reading\n");
         return -1;
       }
-        state = stateMachine(c, state, DISC);
+        state = stateMachine(c, state, DISC_ALT);
     }
     printf("RECEIVED DISC\n");
 
   } while(timeOut && count < link_layer.transmissions);
 
-  if(write(fd, UA, 5) != 5){
-    printf("dataLink - llclose: error writting UA");
+  if(write(fd, UA_ALT, 5) != 5){
+    printf("dataLink - llclose: error writting UA\n");
   }
 
   printf("UA SENT\n");
 
-  sleep(1);
+
   return 0;
 }
 
@@ -510,7 +527,7 @@ int llcloseReceiver(int fd){
   while(state != 5){
 
      if(read(fd, &c, 1) == -1){
-       printf("dataLink - llclose: error reading DISC");
+       printf("dataLink - llclose: error reading DISC\n");
        return -1;
      }
 
@@ -520,8 +537,8 @@ int llcloseReceiver(int fd){
 
    printf("DISC RECEIVED!\n");
 
-   if(write(fd, DISC, 5) != 5){
-     printf("dataLink - llclose: error writing DISC");
+   if(write(fd, DISC_ALT, 5) != 5){
+     printf("dataLink - llclose: error writing DISC\n");
      exit(-1);
    }
 
@@ -531,47 +548,13 @@ int llcloseReceiver(int fd){
 
    while(state != 5) {
      if(read(fd, &c, 1) == -1){
-       printf("dataLink - llclose: error reading UA");
+       printf("dataLink - llclose: error reading UA\n");
        return -1;
      }
 
-     state = stateMachine(c, state, UA);
+     state = stateMachine(c, state, UA_ALT);
   }
   printf("UA RECEIVED\n");
 
    return 0;
 }
-
-int main(int argc, char** argv)
-  {
-
-      int fd,c, res,mode;
-      struct termios oldtio,newtio;
-      unsigned char buf[5];
-      int i, sum = 0, speed = 0;
-
-  	 if ( (argc < 3) ||
-    	     ((strcmp("/dev/ttyS0", argv[1])!=0) &&
-    	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-        printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-        exit(1);
-  	}
-
-  	 if(strcmp(argv[2],"T")==0){
-  		printf("MODE: TRANSMITER\n");
-  		mode=0;
-  }
-  	else if(strcmp(argv[2],"R")==0){
-  	printf("MODE: RECEIVER\n");
-  		mode=1;
-  }
-  	else
-  	printf("Usage: T or R to transitter/receiver mode");
-
-    initDataLinkStruct(TRANSMISSIONS, TIMEOUT, BAUDRATE);
-
-  	fd = llopen(0,mode);
-    llclose(fd);
-
-  	return 0;
-  }

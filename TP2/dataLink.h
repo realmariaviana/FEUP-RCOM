@@ -25,7 +25,7 @@ linkLayer link_layer;
 
 void initDataLinkStruct(int transmissions, int timeOut, int baudRate);
 void alarmHandler(int sig);
-int stateMachine(unsigned char c, int state, char * msg);
+int stateMachine(unsigned char c, int state, unsigned char * msg);
 int setTermios(int fd);
 int llopen(int port, status mode);
 int llopenTransmitter(int fd);
