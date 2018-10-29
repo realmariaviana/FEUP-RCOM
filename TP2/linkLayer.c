@@ -1,4 +1,4 @@
-#include "dataLink.h"
+#include "linkLayer.h"
 
 unsigned char SET[5] = {FLAG, A_SEND, C_SET, A_SEND ^ C_SET, FLAG};
 unsigned char UA[5] = {FLAG, A_SEND, C_UA, A_SEND ^ C_UA, FLAG};
@@ -11,21 +11,16 @@ unsigned char RR1[5] = {FLAG, A_SEND, RR_ALT, A_SEND^RR_ALT, FLAG};
 unsigned char REJ0[5] = {FLAG, A_SEND, REJ, A_SEND^REJ, FLAG};
 unsigned char REJ1[5] = {FLAG, A_SEND, REJ_ALT, A_SEND^REJ_ALT, FLAG};
 
-
-//volatile int STOP=FALSE;
 bool timeOut = false;
 int count = 0;
 bool ignore = false;
-
 
 void initDataLinkStruct(int transmissions, int timeOut, int baudRate){
 
   link_layer.transmissions = transmissions;
   link_layer.timeout = timeOut;
   link_layer.baudRate = baudRate;
-
 }
-
 
 void alarmHandler(int sig){
   timeOut = true;
@@ -140,33 +135,35 @@ int llopen(int port, status mode){
         break;
 
         default:
-        printf("data_link - llopen(): invalid port!\n");
+        printf("linkLayer - llopen(): invalid port\n");
         return -1;
       }
-        //  if(link_layer.mode == TRANSMITTER){
-        	   fd = open(link_layer.port, O_RDWR | O_NOCTTY);
-            // printf("blocks on open\n");}
-        //  else
-      //    fd = open(link_layer.port, O_RDWR | O_NOCTTY);
 
-            if (fd <0) {perror(link_layer.port);printf("ll open errror FD: %d\n", fd); exit(-1);   }
+      fd = open(link_layer.port, O_RDWR | O_NOCTTY);
+
+      if (fd <0) {
+        perror(link_layer.port);
+        exit(-1);
+      }
 
       if (setTermios(fd) != 0) {
-        printf("dataLink - llopen() - setTermios: error\n");
+        printf("linkLayer - llopen() - setTermios: error\n");
         return -1;
       }
 
       if(mode == TRANSMITTER){
+        if(llopenTransmitter(fd) <0)
+        return -1;
+      }
 
-      if(llopenTransmitter(fd) <0)
-      return -1;
-    }
-
-      if(mode == RECEIVER)
-      if(llopenReceiver(fd) < 0)
-      return -1;
+      if(mode == RECEIVER){
+        if(llopenReceiver(fd) < 0)
+        return -1;
+      }
 
       link_layer.sequenceNumber = 0;
+
+      printf("linkLayer - llopen() - SUCCESS!\n");
 
       return fd;
   }
@@ -176,21 +173,23 @@ int llopenTransmitter(int fd){
   int state = 0;
 
   signal(SIGALRM, alarmHandler);
-  //
+
   do{
 
     if(write(fd, SET, 5) != 5){
-      printf("dataLink - llopen: error writting SET\n");
+      printf("linkLayer - llopen: error writting SET\n");
       exit(-1);
     }
+
     printf("SET sent\n");
+
     timeOut = false;
     alarm(link_layer.timeout);
 
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
-        printf("dataLink - llopen: error reading\n");
+        printf("linkLayer - llopen: error reading\n");
         exit(-1);
       }
 
@@ -199,16 +198,20 @@ int llopenTransmitter(int fd){
     printf("UA RECEIVED\n");
 
   } while(timeOut && count < link_layer.transmissions);
-  return 0;
+
+  if (count == link_layer.transmissions)
+      return -1;
+    else
+      return 0;
 }
 
 int llopenReceiver(int fd){
   unsigned char c;
-  int state=0;
+  int state = 0;
 
   while(state!=5){
      if(read(fd, &c, 1) == -1){
-       printf("dataLink - llopen: read error\n");
+       printf("linkLayer - llopen: read error\n");
        exit(-1);
      }
 
@@ -218,10 +221,12 @@ int llopenReceiver(int fd){
    printf("SET RECEIVED\n");
 
    if(write(fd, UA, 5) != 5){
-     printf("dataLink - llopen: error writing UA\n");
+     printf("linkLayer - llopen: error writing UA\n");
      exit(-1);
    }
+
    printf("UA SENT\n");
+
    return 0;
 }
 
@@ -341,7 +346,7 @@ int llread(int fd, unsigned char *packet, int *packetSize){
 
   link_layer.sequenceNumber ^= 1;
 
-  if (getBCC2(packet, *packetSize) == 0){
+  if (correctBCC2(packet, *packetSize) == 0){
     if (link_layer.sequenceNumber)
       write(fd, RR1, 5);
     else
@@ -391,74 +396,7 @@ int writePacket(int fd, unsigned char* buffer, int bufLength){
   return 0;
 }
 
-int readPacket(int fd, unsigned char* frame, int *frameLength){
-
-  bool STOP = false;
-  char buf;
-  *frameLength = 0;
-  int flag_count = 0;
-
-  while (!STOP) {
-    if (read(fd, &buf, 1) >0) {
-      if (buf == FLAG) {
-        if(!ignore){
-        flag_count++;
-
-        if(flag_count == 2)
-        STOP = true;
-
-        frame[*frameLength] = buf;
-        (*frameLength)++;
-      }else
-        ignore = false;
-
-      }else {
-        if(flag_count>0) {
-          frame[*frameLength] = buf;
-          (*frameLength)++;
-        }
-      }
-    }else
-    return -1;
-  }
-
-  return 0;
-}
-
-bool frameSCorrect(unsigned char *response, int responseLength, unsigned char C){
-  if(responseLength < 5) return false;
-
-  if(response[0] == (unsigned char)FLAG &&
-   response[1] == (unsigned char)A_SEND &&
-   response[3] == (unsigned char)(response[1]^response[2]) &&
-   response[4] == (unsigned char)FLAG &&
-   ((C == RR  && response[2] == (unsigned char)(!link_layer.sequenceNumber << 7 | C)) ||
-   (C == REJ && response[2] == (unsigned char)(link_layer.sequenceNumber << 7 | C))))
-   return true;
-   else
-   return false;
-}
-
-unsigned char *createSFrame(char ctrlByte){
-  unsigned char *answer = (unsigned char *)malloc(SFRAMELEN * sizeof(char));
-
-  answer[0] = FLAG;
-  answer[1] =  A_SEND;
-  answer[2] = (link_layer.sequenceNumber << 7) | ctrlByte; //PORQUE 7?????????????
-  answer[3] = answer[1] ^ answer[2];
-  answer[4] = FLAG;
-
-  return answer;
-}
-
-bool frameICorrect(unsigned char * frame){
-  if(frame[0] == FLAG && frame[1] == A_SEND && frame[3] == (frame[1] ^ frame[2])) // WTFFFFFFFFFF
-    return true;
-    else
-      return false;
-}
-
-unsigned char getBCC2(const unsigned char* buf, unsigned int size) {
+unsigned char correctBCC2(const unsigned char* buf, unsigned int size) {
 	unsigned char BCC2 = buf[0];
 
 	unsigned int i;
@@ -466,10 +404,6 @@ unsigned char getBCC2(const unsigned char* buf, unsigned int size) {
 		BCC2 ^= buf[i];
 
 	return BCC2;
-}
-
-bool valid_sequence_number(char ctrlByte) {
-  return (ctrlByte == (link_layer.sequenceNumber << 6)); //???????????
 }
 
 unsigned char *stuff(unsigned char *packet, int *packetLength){
@@ -482,12 +416,6 @@ unsigned char *stuff(unsigned char *packet, int *packetLength){
   //Calcular o BCC2
   for(i = 0; i < *packetLength; i++){
     BCC2 ^= packet[i];
-  }
-
-  //QUE É ESTA MERDAAA????????????
-  if(link_layer.wrongPackets > 0){
-    BCC2 = 0;
-    link_layer.wrongPackets--;
   }
 
   packet[*packetLength] = BCC2;
@@ -514,6 +442,7 @@ unsigned char *stuff(unsigned char *packet, int *packetLength){
 }
 
 unsigned char *destuff(unsigned char *packet, int *packetLength){
+
   unsigned char* destuffed = (unsigned char*)malloc(((*packetLength)) * sizeof(char));
 
   int i = 0, j = 0;
@@ -522,12 +451,14 @@ unsigned char *destuff(unsigned char *packet, int *packetLength){
     if(packet[i] == ESC){
       destuffed[i] = packet[i + 1] ^ BYTE_STUFF;
       i++;
-    } else{
+    } else
       destuffed[j] = packet[i];
+
       j++;
-    }
   }
+
   *packetLength = j;
+
   return destuffed;
 }
 
@@ -556,7 +487,7 @@ int llcloseTransmitter(int fd){
   do{
 
     if(write(fd, DISC, 5) != 5){
-      printf("dataLink - llclose: error writting DISC\n");
+      printf("linkLayer - llclose: error writting DISC\n");
       return -1;
     }
     printf("DISC SENT!\n");
@@ -567,7 +498,7 @@ int llcloseTransmitter(int fd){
     while(state != 5 && !timeOut){
 
       if(read(fd, &c, 1) == -1){
-        printf("dataLink - llclose: error reading\n");
+        printf("linkLayer - llclose: error reading\n");
         return -1;
       }
         state = stateMachine(c, state, DISC_ALT);
@@ -577,7 +508,7 @@ int llcloseTransmitter(int fd){
   } while(timeOut && count < link_layer.transmissions);
 
   if(write(fd, UA_ALT, 5) != 5){
-    printf("dataLink - llclose: error writting UA\n");
+    printf("linkLayer - llclose: error writting UA\n");
   }
 
   printf("UA SENT\n");
@@ -594,7 +525,7 @@ int llcloseReceiver(int fd){
   while(state != 5){
 
      if(read(fd, &c, 1) == -1){
-       printf("dataLink - llclose: error reading DISC\n");
+       printf("linkLayer - llclose: error reading DISC\n");
        return -1;
      }
 
@@ -605,7 +536,7 @@ int llcloseReceiver(int fd){
    printf("DISC RECEIVED!\n");
 
    if(write(fd, DISC_ALT, 5) != 5){
-     printf("dataLink - llclose: error writing DISC\n");
+     printf("linkLayer - llclose: error writing DISC\n");
      exit(-1);
    }
 
@@ -615,7 +546,7 @@ int llcloseReceiver(int fd){
 
    while(state != 5) {
      if(read(fd, &d, 1) == -1){
-       printf("dataLink - llclose: error reading UA\n");
+       printf("linkLayer - llclose: error reading UA\n");
        return -1;
      }
      state = stateMachine(d, state, UA_ALT);

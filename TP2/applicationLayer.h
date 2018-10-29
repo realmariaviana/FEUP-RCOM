@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <time.h>
-#include "dataLink.h"
+#include "linkLayer.h"
 
 /*
 typedef struct  {

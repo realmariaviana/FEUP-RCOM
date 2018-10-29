@@ -12,7 +12,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
-#include "dataLink.h"
+#include "linkLayer.h"
 
 typedef struct  {
   int port;
@@ -25,7 +25,7 @@ applicationLayer app;
 int createControlPacket(char* filename, unsigned long filesize, unsigned char control_byte, unsigned char * packet);
 int createDataPacket(unsigned char* data, int dataSize, unsigned char* packet);
 int receivePacket(unsigned char *packet);
-void recieveDataPacket(unsigned char *packet);
+void receiveDataPacket(unsigned char *packet);
 void receiveControlPacket(unsigned char *packet, unsigned char control_byte);
 unsigned char *readFile(char *fileName, unsigned long fileSize);
 void set_connection(char * port, char * stat);

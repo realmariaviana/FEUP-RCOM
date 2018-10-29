@@ -18,7 +18,6 @@ typedef struct {
   unsigned int transmissions; //numero de tentativas em caso de falha
   status mode; //receiver or transmitter
   struct termios oldTermios;
-  int wrongPackets;
 }linkLayer;
 
 linkLayer link_layer;
@@ -34,12 +33,7 @@ int llwrite(int fd,unsigned char * packet, int length, int * rejCounter);
 int llread(int fd, unsigned char *packet, int *packetSize);
 unsigned char *createIFrame(int *frameLength,unsigned char *packet, int packetLength);
 int writePacket(int fd, unsigned char* buffer, int bufLength);
-int readPacket(int fd, unsigned char* frame, int *frameLength);
-bool frameSCorrect(unsigned char *response, int responseLength, unsigned char C);
-bool frameICorrect(unsigned char * frame);
-unsigned char getBCC2(const unsigned char* buf, unsigned int size);
-bool valid_sequence_number(char ctrlByte);
-unsigned char *createSFrame(char ctrlByte);
+unsigned char correctBCC2(const unsigned char* buf, unsigned int size);
 unsigned char *stuff(unsigned char *packet, int *packetLength);
 unsigned char *destuff(unsigned char *packet, int *packetLength);
 int llclose(int fd);

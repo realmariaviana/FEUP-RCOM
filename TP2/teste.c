@@ -112,7 +112,7 @@ int createDataPacket(unsigned char* data, int dataSize, unsigned char* packet){
   return i+4;
 }
 
-void recieveDataPacket(unsigned char *packet){
+void receiveDataPacket(unsigned char *packet){
   unsigned char l1, l2;
   int k;
   l1 = packet[3];
@@ -156,7 +156,7 @@ void receiveControlPacket(unsigned char *packet, unsigned char control_byte){
 int receivePacket(unsigned char *packet){
   switch(packet[0]){
     case 1:
-      recieveDataPacket(packet);
+      receiveDataPacket(packet);
       break;
     case 2:
       receiveControlPacket(packet, START);
