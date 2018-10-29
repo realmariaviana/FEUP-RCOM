@@ -3,6 +3,84 @@
 unsigned char seqNum = 0;
 int fDes;
 
+int main(int argc, char** argv){
+
+  if ( (argc < 4) ||
+       ((strcmp(COM1_PORT, argv[1])!=0) && (strcmp(COM2_PORT, argv[1])!=0)) ||
+       ((strcmp("T", argv[2]) !=0) &&  (strcmp("R", argv[2]) !=0))) {
+
+    printf("Usage:\tnserial SerialPort ComunicationMode\n\tex: nserial /dev/ttyS1 R penguin.gif\n");
+    exit(1);
+  }
+
+  char *filename = argv[3];
+
+  initDataLinkStruct(TRANSMISSIONS, TIMEOUT, BAUDRATE);
+
+  set_connection(argv[1],argv[2]);
+
+  if(app.mode == TRANSMITTER){
+      transmitterMode(filename);
+  }
+  else if (app.mode == RECEIVER) {
+      receiverMode();
+  }
+
+  llclose(app.fileDescriptor);
+  return 0;
+}
+
+int transmitterMode(char* fileName) {
+    int file;
+    struct stat data;
+    long fileSize;
+
+    if ((file = open(fileName, O_RDONLY)) == -1) {
+        perror("Error while opening the file");
+        return 0;
+    }
+
+    stat((const char *)fileName, &data); //get the file metadata
+    fileSize = data.st_size; //gets file size in bytes
+    //unsigned char *fileData = (unsigned char *)malloc(fileSize);
+
+    int rejCounter = 0;
+    unsigned char startPacket[PACKET_SIZE];
+    int packetSize = createControlPacket(fileName, fileSize, START, startPacket);
+    llwrite(app.fileDescriptor, startPacket, packetSize, &rejCounter);
+
+    unsigned char msg[DATA_PACKET_SIZE];
+    unsigned char packet[PACKET_SIZE];
+
+    while ((packetSize = read(file, msg, DATA_PACKET_SIZE)) != 0) {
+      createDataPacket(msg, packetSize, packet);
+      llwrite(app.fileDescriptor, startPacket, packetSize, &rejCounter);
+    }
+
+    unsigned char endPacket[PACKET_SIZE];
+    packetSize = createControlPacket(fileName, fileSize, END, endPacket);
+    llwrite(app.fileDescriptor, endPacket, packetSize, &rejCounter);
+    return 0;
+}
+
+int receiverMode() {
+    int packetSize = 0;
+    unsigned char startPacket[(PACKET_SIZE+5)*2];
+    llread(app.fileDescriptor, startPacket, &packetSize);
+    receiveControlPacket(startPacket, START);
+
+    // while (read(file, , ) != 0) {
+    //
+    // }
+
+    packetSize = 0;
+    unsigned char endPacket[(PACKET_SIZE+5)*2];
+    llread(app.fileDescriptor, endPacket, &packetSize);
+    receiveControlPacket(endPacket, END);
+
+    return 0;
+}
+
 int createControlPacket(char* filename, unsigned long filesize, unsigned char control_byte, unsigned char * packet){
 
   packet[0] = control_byte;
@@ -24,7 +102,7 @@ int createControlPacket(char* filename, unsigned long filesize, unsigned char co
 
 int createDataPacket(unsigned char* data, int dataSize, unsigned char* packet){
   packet[0] = DATA;
-  packet[1] = seqNum;
+  packet[1] = seqNum++;
   packet[2] = dataSize/256;
   packet[3] = dataSize%256;
   int i = 0;
@@ -32,23 +110,6 @@ int createDataPacket(unsigned char* data, int dataSize, unsigned char* packet){
       packet[i+4] = data[i];
   }
   return i+4;
-}
-
-int receivePacket(unsigned char *packet){
-  switch(packet[0]){
-    case 1:
-      recieveDataPacket(packet);
-      break;
-    case 2:
-      receiveControlPacket(packet, START);
-      break;
-    case 3:
-      receiveControlPacket(packet, END);
-      break;
-    default:
-      break;
-  }
-  return 0;
 }
 
 void recieveDataPacket(unsigned char *packet){
@@ -67,17 +128,46 @@ void recieveDataPacket(unsigned char *packet){
 }
 
 void receiveControlPacket(unsigned char *packet, unsigned char control_byte){
-  unsigned char filenameSize = packet[8];
+  // int fileSizeLength = (int) packet[2];
+  unsigned long fileSize = 0;
+
+  fileSize += packet[6];
+  fileSize += packet[5] << 8;
+  fileSize += packet[4] << 16;
+  fileSize += packet[3] << 24;
+  printf("fileSize: %ld\n", fileSize);
+
+  int filenameSize = (int) packet[8];
   unsigned char filename[filenameSize];
   int i = 0;
   for(; i < filenameSize; i++){
     filename[i] = packet[i+9];
   }
+
+  printf("filename: %s\n", filename);
+
   if(control_byte == START){
-    fDes = open(filename, O_APPEND | O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
+
   } else if(control_byte == END){
-    close(fDes);
+    close(app.fileDescriptor);
   }
+}
+
+int receivePacket(unsigned char *packet){
+  switch(packet[0]){
+    case 1:
+      recieveDataPacket(packet);
+      break;
+    case 2:
+      receiveControlPacket(packet, START);
+      break;
+    case 3:
+      receiveControlPacket(packet, END);
+      break;
+    default:
+      break;
+  }
+  return 0;
 }
 
 void set_connection(char * port, char * stat){
@@ -103,37 +193,4 @@ void set_connection(char * port, char * stat){
     exit(-1);
   }
 
-
-}
-
-
-int main(int argc, char** argv){
-
-  if ( (argc < 4) ||
-       ((strcmp(COM1_PORT, argv[1])!=0) && (strcmp(COM2_PORT, argv[1])!=0)) ||
-       ((strcmp("T", argv[2]) !=0) &&  (strcmp("R", argv[2]) !=0))) {
-
-    printf("Usage:\tnserial SerialPort ComunicationMode\n\tex: nserial /dev/ttyS1 R penguin.gif\n");
-    exit(1);
-  }
-
-  unsigned char* filename = argv[3];
-
-  initDataLinkStruct(TRANSMISSIONS, TIMEOUT, BAUDRATE);
-
-  set_connection(argv[1],argv[2]);
-
-  struct stat d;
-  unsigned char* packet;
-  int rejCounter = 0;
-  stat(filename, &d);
-  unsigned long filesize = d.st_size;
-
-  if(app.mode == TRANSMITTER){
-    int packetsize = createControlPacket(filename, filesize, START, packet);
-    llwrite(app.fileDescriptor, packet, packetsize, rejCounter);
-  }
-
-  llclose(app.fileDescriptor);
-  return 0;
 }

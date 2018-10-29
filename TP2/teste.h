@@ -26,4 +26,8 @@ int createControlPacket(char* filename, unsigned long filesize, unsigned char co
 int createDataPacket(unsigned char* data, int dataSize, unsigned char* packet);
 int receivePacket(unsigned char *packet);
 void recieveDataPacket(unsigned char *packet);
-void recieveControlPacket(unsigned char *packet, unsigned char control_byte);
+void receiveControlPacket(unsigned char *packet, unsigned char control_byte);
+unsigned char *readFile(char *fileName, unsigned long fileSize);
+void set_connection(char * port, char * stat);
+int transmitterMode(char* fileName);
+int receiverMode();
