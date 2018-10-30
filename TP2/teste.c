@@ -23,7 +23,7 @@ int main(int argc, char** argv){
       transmitterMode(filename);
   }
   else if (app.mode == RECEIVER) {
-      receiverMode();
+      receiverMode(filename);
   }
 
   llclose(app.fileDescriptor);
@@ -63,15 +63,22 @@ int transmitterMode(char* fileName) {
     return 0;
 }
 
-int receiverMode() {
+int receiverMode(char* filename) {
     int packetSize = 0;
     unsigned char startPacket[(PACKET_SIZE+5)*2];
     llread(app.fileDescriptor, startPacket, &packetSize);
     receiveControlPacket(startPacket, START);
 
-    // while (read(file, , ) != 0) {
-    //
-    // }
+    unsigned char dataPacket[DATA_PACKET_SIZE];
+
+    int fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT );
+
+    while(true){
+      packetSize = 0;
+      llread(app.fileDescriptor, dataPacket, &packetSize);
+      receiveDataPacket(dataPacket, fd);
+    }
+    close(fd);
 
     packetSize = 0;
     unsigned char endPacket[(PACKET_SIZE+5)*2];
@@ -112,7 +119,7 @@ int createDataPacket(unsigned char* data, int dataSize, unsigned char* packet){
   return i+4;
 }
 
-void receiveDataPacket(unsigned char *packet){
+void receiveDataPacket(unsigned char *packet, int fd){
   unsigned char l1, l2;
   int k;
   l1 = packet[3];
@@ -121,10 +128,10 @@ void receiveDataPacket(unsigned char *packet){
   unsigned char d[k];
   int i = 0;
   for(; i < k; i++){
-    d[i] = packet[i+3];
+    d[i] = packet[i+4];
   }
 
-  write(fDes, d, k);
+  write(fd, d, k);
 }
 
 void receiveControlPacket(unsigned char *packet, unsigned char control_byte){
@@ -145,30 +152,24 @@ void receiveControlPacket(unsigned char *packet, unsigned char control_byte){
   }
 
   printf("filename: %s\n", filename);
-
-  if(control_byte == START){
-
-  } else if(control_byte == END){
-    close(app.fileDescriptor);
-  }
 }
 
-int receivePacket(unsigned char *packet){
-  switch(packet[0]){
-    case 1:
-      receiveDataPacket(packet);
-      break;
-    case 2:
-      receiveControlPacket(packet, START);
-      break;
-    case 3:
-      receiveControlPacket(packet, END);
-      break;
-    default:
-      break;
-  }
-  return 0;
-}
+// int receivePacket(unsigned char *packet){
+//   switch(packet[0]){
+//     case 1:
+//       receiveDataPacket(packet);
+//       break;
+//     case 2:
+//       receiveControlPacket(packet, START);
+//       break;
+//     case 3:
+//       receiveControlPacket(packet, END);
+//       break;
+//     default:
+//       break;
+//   }
+//   return 0;
+// }
 
 void set_connection(char * port, char * stat){
 
