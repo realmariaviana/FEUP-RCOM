@@ -277,6 +277,7 @@ int llwrite(int fd,unsigned char * packet, int length, int * rejCounter){
     //     }
     // }
 
+  
   }while(state != 5 && count < link_layer.transmissions);
 
   printf("saiu\n");
@@ -341,12 +342,21 @@ int llread(int fd, unsigned char *packet, int *packetSize){
         break;
     }
   }
+  printf("antes destuff - %d\n", *packetSize);
 
-  destuff(packet, packetSize);
+  unsigned char* destuffed;
+  destuffed = destuff(packet, packetSize);
+  memcpy(packet, destuffed, *packetSize);
+
+  printf("depois do destuff: %d\n", *packetSize);
+  // int i = 0;
+  // for(; i < *packetSize; i++){
+  //   printf("%x\n", packet[i]);
+  // }
 
   link_layer.sequenceNumber ^= 1;
 
-  if (correctBCC2(packet, *packetSize) == 0){
+  if (correctBCC2(destuffed, *packetSize) == 0){
     if (link_layer.sequenceNumber)
       write(fd, RR1, 5);
     else
@@ -365,7 +375,7 @@ int llread(int fd, unsigned char *packet, int *packetSize){
 unsigned char *createIFrame(int *frameLength,unsigned char *packet, int packetLength){
   unsigned char *stuffPacket = stuff(packet, &packetLength);
   *frameLength = packetLength + 5; //packetLength + 5 flags
-  unsigned char *frame = (unsigned char *)malloc(*frameLength * sizeof(char));
+  unsigned char *frame = (unsigned char *)malloc(*frameLength * sizeof(unsigned char));
 
   frame[0] = FLAG;
   frame[1] = A_SEND;
@@ -427,6 +437,7 @@ unsigned char *stuff(unsigned char *packet, int *packetLength){
      if(packet[i] == FLAG || packet[i] == ESC){
       stuffed[j] = ESC;
       stuffed[++j] = packet[i] ^ BYTE_STUFF;
+      j++;
     }
 
     else{
@@ -443,13 +454,13 @@ unsigned char *stuff(unsigned char *packet, int *packetLength){
 
 unsigned char *destuff(unsigned char *packet, int *packetLength){
 
-  unsigned char* destuffed = (unsigned char*)malloc(((*packetLength)) * sizeof(char));
+  unsigned char* destuffed = (unsigned char*)malloc(((*packetLength)));
 
   int i = 0, j = 0;
 
   for (; i < *packetLength; i++){
     if(packet[i] == ESC){
-      destuffed[i] = packet[i + 1] ^ BYTE_STUFF;
+      destuffed[j] = packet[i + 1] ^ BYTE_STUFF;
       i++;
     } else
       destuffed[j] = packet[i];

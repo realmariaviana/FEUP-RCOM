@@ -54,36 +54,37 @@ int transmitterMode(char* fileName) {
 
     while ((packetSize = read(file, msg, DATA_PACKET_SIZE)) != 0) {
       createDataPacket(msg, packetSize, packet);
-      llwrite(app.fileDescriptor, startPacket, packetSize, &rejCounter);
+      llwrite(app.fileDescriptor, packet, packetSize, &rejCounter);
     }
 
     unsigned char endPacket[PACKET_SIZE];
     packetSize = createControlPacket(fileName, fileSize, END, endPacket);
-    llwrite(app.fileDescriptor, endPacket, packetSize, &rejCounter);
+    //llwrite(app.fileDescriptor, endPacket, packetSize, &rejCounter);
     return 0;
 }
 
 int receiverMode(char* filename) {
     int packetSize = 0;
-    unsigned char startPacket[(PACKET_SIZE+5)*2];
-    llread(app.fileDescriptor, startPacket, &packetSize);
-    receiveControlPacket(startPacket, START);
+    // unsigned char startPacket[(PACKET_SIZE+5)*2];
+    // llread(app.fileDescriptor, startPacket, &packetSize);
+    // receiveControlPacket(startPacket, START);
 
-    unsigned char dataPacket[DATA_PACKET_SIZE];
+    unsigned char dataPacket[(PACKET_SIZE+5)*2];
 
     int fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT );
 
-    while(true){
+    while(dataPacket[0] != 3){
       packetSize = 0;
       llread(app.fileDescriptor, dataPacket, &packetSize);
-      receiveDataPacket(dataPacket, fd);
+      printf("79: %d\n", dataPacket[0]);
+      receivePacket(dataPacket, fd);
     }
-    close(fd);
+     close(fd);
 
-    packetSize = 0;
-    unsigned char endPacket[(PACKET_SIZE+5)*2];
-    llread(app.fileDescriptor, endPacket, &packetSize);
-    receiveControlPacket(endPacket, END);
+    // packetSize = 0;
+    // unsigned char endPacket[(PACKET_SIZE+5)*2];
+    // llread(app.fileDescriptor, endPacket, &packetSize);
+    // receiveControlPacket(endPacket, END);
 
     return 0;
 }
@@ -124,12 +125,14 @@ void receiveDataPacket(unsigned char *packet, int fd){
   int k;
   l1 = packet[3];
   l2 = packet[2];
+  printf("l1= %d|l2= %d\n", l1, l2);
   k = 256*l2 + l1;
   unsigned char d[k];
   int i = 0;
-  for(; i < k; i++){
-    d[i] = packet[i+4];
-  }
+ for(; i < k; i++){
+   d[i] = packet[i+4];
+//   printf("d: %x\n", d[i]);
+ }
 
   write(fd, d, k);
 }
@@ -154,22 +157,22 @@ void receiveControlPacket(unsigned char *packet, unsigned char control_byte){
   printf("filename: %s\n", filename);
 }
 
-// int receivePacket(unsigned char *packet){
-//   switch(packet[0]){
-//     case 1:
-//       receiveDataPacket(packet);
-//       break;
-//     case 2:
-//       receiveControlPacket(packet, START);
-//       break;
-//     case 3:
-//       receiveControlPacket(packet, END);
-//       break;
-//     default:
-//       break;
-//   }
-//   return 0;
-// }
+int receivePacket(unsigned char *packet, int fd){
+  switch(packet[0]){
+    case 1:
+      receiveDataPacket(packet, fd);
+      break;
+    case 2:
+      receiveControlPacket(packet, START);
+      break;
+    case 3:
+      receiveControlPacket(packet, END);
+      break;
+    default:
+      break;
+  }
+  return 0;
+}
 
 void set_connection(char * port, char * stat){
 

@@ -24,7 +24,7 @@ applicationLayer app;
 
 int createControlPacket(char* filename, unsigned long filesize, unsigned char control_byte, unsigned char * packet);
 int createDataPacket(unsigned char* data, int dataSize, unsigned char* packet);
-int receivePacket(unsigned char *packet);
+int receivePacket(unsigned char *packet, int fd);
 void receiveDataPacket(unsigned char *packet, int fd);
 void receiveControlPacket(unsigned char *packet, unsigned char control_byte);
 unsigned char *readFile(char *fileName, unsigned long fileSize);
