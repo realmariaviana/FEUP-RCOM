@@ -49,17 +49,19 @@ int transmitterMode(char* fileName) {
     int packetSize = createControlPacket(fileName, fileSize, START, startPacket);
     llwrite(app.fileDescriptor, startPacket, packetSize, &rejCounter);
 
+    int size;
+
     unsigned char msg[DATA_PACKET_SIZE];
     unsigned char packet[PACKET_SIZE];
 
     while ((packetSize = read(file, msg, DATA_PACKET_SIZE)) != 0) {
-      createDataPacket(msg, packetSize, packet);
-      llwrite(app.fileDescriptor, packet, packetSize, &rejCounter);
+      size = createDataPacket(msg, packetSize, packet);
+      llwrite(app.fileDescriptor, packet, size, &rejCounter);
     }
 
     unsigned char endPacket[PACKET_SIZE];
     packetSize = createControlPacket(fileName, fileSize, END, endPacket);
-    //llwrite(app.fileDescriptor, endPacket, packetSize, &rejCounter);
+    llwrite(app.fileDescriptor, endPacket, packetSize, &rejCounter);
     return 0;
 }
 
