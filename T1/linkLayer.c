@@ -250,7 +250,7 @@ int llwrite(int fd,unsigned char * packet, int length, int * rejCounter){
     unsigned char c, C;
     while(state!=5 && !timeOut){
       if(read(fd, &c, 1) == -1) {
-        printf("dataLink - llopen: read error\n");
+        printf("linkLayer - llopen: read error\n");
         exit(-1);
       }
 
@@ -326,7 +326,7 @@ int llread(int fd, unsigned char *packet, int *packetSize){
 
   while(state!=5){
     if((res = read(fd, &c, 1)) == -1){
-      printf("dataLink - llopen: read error\n");
+      printf("linkLayer - llopen: read error\n");
       return -1;
     }
     else if(res == 0 && state == 4)
