@@ -161,7 +161,8 @@ int llopen(int port, status mode){
         return -1;
       }
 
-      link_layer.sequenceNumber = 0;
+
+	  link_layer.sequenceNumber = 0;
 
       printf("linkLayer - llopen() - SUCCESS!\n");
 
@@ -246,58 +247,92 @@ int llwrite(int fd,unsigned char * packet, int length, int * rejCounter){
     alarm(link_layer.timeout);
 
     state=0;
-    unsigned char c;
+    unsigned char c, C;
     while(state!=5 && !timeOut){
       if(read(fd, &c, 1) == -1) {
         printf("dataLink - llopen: read error\n");
         exit(-1);
       }
 
-      if (link_layer.sequenceNumber) {
-        state = stateMachine(c, state, RR0);
-      }
-      else {
-        state = stateMachine(c, state, RR1);
+      switch (state) {
+      case 0:
+        if(c == FLAG)
+          state = 1;
+        break;
+
+      case 1:
+        if(c == A_SEND)
+          state = 2;
+        else if(c != FLAG)
+          state = 0;
+        break;
+
+      case 2:
+        if(c == RR || c == RR_ALT || c == REJ || c == REJ_ALT){
+          state = 3;
+          C = c;
+        }
+        else if(c == FLAG)
+          state = 1;
+        else
+          state = 0;
+        break;
+
+      case 3:
+        if( c == (A_SEND^C))
+          state = 4;
+        else if(c == FLAG)
+          state = 1;
+        else
+          state = 0;
+        break;
+
+      case 4:
+        if(c == FLAG)
+          state = 5;
+        else {
+          state = 0;
+        }
+        break;
+
+      default:
+        break;
       }
     }
-    // while(!timeOut){
-    //     if(readPacket(fd, response, &responseLength) == 0){
-    //         if(frameSCorrect(response,responseLength,RR)){
-    //             alarm(0);
-    //             link_layer.sequenceNumber =! link_layer.sequenceNumber;
-    //             return 0;
-    //         }
-    //
-    //         if(frameSCorrect(response,responseLength,REJ)){
-    //             alarm(0);
-    //             count=0;
-    //             timeOut = true;
-    //             (*rejCounter)++;
-    //         }
-    //     }
-    // }
 
-  
-  }while(state != 5 && count < link_layer.transmissions);
+    if ((link_layer.sequenceNumber && C == RR) || (!link_layer.sequenceNumber && C == RR_ALT)) {
+      printf("Recebeu RR %x, trama = %d\n", C, link_layer.sequenceNumber);
+      link_layer.sequenceNumber ^= 1;
+      alarm(0);
+    }
+    else if ((link_layer.sequenceNumber && C == REJ) || (!link_layer.sequenceNumber && C == REJ_ALT)){
+      printf("Recebeu REJ %x, trama = %d\n", C, link_layer.sequenceNumber);
+      timeOut = true;
+      alarm(0);
+    }
+  }while(timeOut && count < link_layer.transmissions);
 
-  printf("saiu\n");
-  alarm(0);
+  if (count == link_layer.transmissions)
+    return -1;
 
-  link_layer.sequenceNumber ^= 1;
-
-  return -1;
+  return 0;
 }
 
 int llread(int fd, unsigned char *packet, int *packetSize){
 
   unsigned char c;
   int state=0;
+  int res;
 
   while(state!=5){
-    if(read(fd, &c, 1) == -1){
+    if((res = read(fd, &c, 1)) == -1){
       printf("dataLink - llopen: read error\n");
       return -1;
     }
+    else if(res == 0 && state == 4)
+      break;
+
+    //printf("state: %d\n", state);
 
     switch (state) {
       case 0:
@@ -342,34 +377,43 @@ int llread(int fd, unsigned char *packet, int *packetSize){
         break;
     }
   }
-  printf("antes destuff - %d\n", *packetSize);
+
+  printf("saiu da state machine\n");
+  //printf("antes destuff - %d\n", *packetSize);
 
   unsigned char* destuffed;
   destuffed = destuff(packet, packetSize);
   memcpy(packet, destuffed, *packetSize);
 
-  printf("depois do destuff: %d\n", *packetSize);
+  //printf("depois do destuff: %d\n", *packetSize);
   // int i = 0;
   // for(; i < *packetSize; i++){
   //   printf("%x\n", packet[i]);
   // }
 
-  link_layer.sequenceNumber ^= 1;
 
   if (correctBCC2(destuffed, *packetSize) == 0){
+    ignore = false;
     if (link_layer.sequenceNumber)
-      write(fd, RR1, 5);
-    else
       write(fd, RR0, 5);
+    else
+      write(fd, RR1, 5);
+
+    printf("Enviou RR, sequenceNumber:%d\n", link_layer.sequenceNumber);
+
+    link_layer.sequenceNumber ^= 1;
   }
   else {
-    if (link_layer.sequenceNumber)
-      write(fd, REJ1, 5);
-    else
-      write(fd, REJ0, 5);
-  }
+    ignore = true;
 
-  return 0;
+    if (link_layer.sequenceNumber)
+      write(fd, REJ0, 5);
+    else
+      write(fd, REJ1, 5);
+
+    printf("Enviou REJ, sequenceNumber:%d\n", link_layer.sequenceNumber);
+  }
+  return ignore;
 }
 
 unsigned char *createIFrame(int *frameLength,unsigned char *packet, int packetLength){
@@ -389,19 +433,16 @@ unsigned char *createIFrame(int *frameLength,unsigned char *packet, int packetLe
 }
 
 int writePacket(int fd, unsigned char* buffer, int bufLength){
-  int charTotal = 0;
-  int chars = 0;
+  int chars;
 
-  while(charTotal < bufLength){
-    chars = write(fd, buffer, bufLength);
+  chars = write(fd, buffer, bufLength);
 
-    if(chars <= 0) {
-      printf("error writing\n");
-      return -1;
-    }
-
-    charTotal += chars;
+  if(chars < 0) {
+    printf("error writing\n");
+    return -1;
   }
+  else
+    printf("Enviou I com %d bytes\n", chars);
 
   return 0;
 }

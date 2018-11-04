@@ -29,6 +29,8 @@ int setTermios(int fd);
 int llopen(int port, status mode);
 int llopenTransmitter(int fd);
 int llopenReceiver(int fd);
+int readPacket(int fd, unsigned char *frame, int *frame_length);
+bool frameSCorrect(unsigned char *response, int response_len, unsigned char C);
 int llwrite(int fd,unsigned char * packet, int length, int * rejCounter);
 int llread(int fd, unsigned char *packet, int *packetSize);
 unsigned char *createIFrame(int *frameLength,unsigned char *packet, int packetLength);

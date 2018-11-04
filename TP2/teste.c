@@ -20,7 +20,8 @@ int main(int argc, char** argv){
   set_connection(argv[1],argv[2]);
 
   if(app.mode == TRANSMITTER){
-      transmitterMode(filename);
+      if (transmitterMode(filename) == -1)
+        return -1;
   }
   else if (app.mode == RECEIVER) {
       receiverMode(filename);
@@ -56,7 +57,8 @@ int transmitterMode(char* fileName) {
 
     while ((packetSize = read(file, msg, DATA_PACKET_SIZE)) != 0) {
       size = createDataPacket(msg, packetSize, packet);
-      llwrite(app.fileDescriptor, packet, size, &rejCounter);
+      if (llwrite(app.fileDescriptor, packet, size, &rejCounter) == -1)
+        return -1;
     }
 
     unsigned char endPacket[PACKET_SIZE];
@@ -73,13 +75,14 @@ int receiverMode(char* filename) {
 
     unsigned char dataPacket[(PACKET_SIZE+5)*2];
 
-    int fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT );
+    int fd = open(filename, O_WRONLY | O_TRUNC | O_CREAT | O_APPEND );
 
     while(dataPacket[0] != 3){
       packetSize = 0;
-      llread(app.fileDescriptor, dataPacket, &packetSize);
-      printf("79: %d\n", dataPacket[0]);
-      receivePacket(dataPacket, fd);
+      if(!llread(app.fileDescriptor, dataPacket, &packetSize)){
+        receivePacket(dataPacket, fd);
+      }
+      //printf("%d\n", packetSize);
     }
      close(fd);
 
@@ -127,7 +130,7 @@ void receiveDataPacket(unsigned char *packet, int fd){
   int k;
   l1 = packet[3];
   l2 = packet[2];
-  printf("l1= %d|l2= %d\n", l1, l2);
+  //printf("l1= %d|l2= %d\n", l1, l2);
   k = 256*l2 + l1;
   unsigned char d[k];
   int i = 0;
