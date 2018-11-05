@@ -196,7 +196,8 @@ int llopenTransmitter(int fd){
 
         state = stateMachine(c, state, UA);
     }
-    printf("UA RECEIVED\n");
+    if(state == 5)
+			printf("UA RECEIVED\n");
 
   } while(timeOut && count < link_layer.transmissions);
 
@@ -210,7 +211,9 @@ int llopenReceiver(int fd){
   unsigned char c;
   int state = 0;
 
-  while(state!=5){
+	alarm(link_layer.timeout * link_layer.transmissions);
+  
+	while(state!=5){
      if(read(fd, &c, 1) == -1){
        printf("linkLayer - llopen: read error\n");
        exit(-1);
@@ -323,6 +326,8 @@ int llread(int fd, unsigned char *packet, int *packetSize){
   unsigned char c;
   int state=0;
   int res;
+	
+	alarm(5);
 
   while(state!=5){
     if((res = read(fd, &c, 1)) == -1){
@@ -574,6 +579,8 @@ int llcloseReceiver(int fd){
   unsigned char d;
   int state = 0;
 
+	alarm(link_layer.timeout * link_layer.transmissions);
+
   while(state != 5){
 
      if(read(fd, &c, 1) == -1){
@@ -603,7 +610,7 @@ int llcloseReceiver(int fd){
      }
      state = stateMachine(d, state, UA_ALT);
   }
-  printf("UA RECEIVED\n");
+	printf("UA RECEIVED\n");
 
    return 0;
 }
