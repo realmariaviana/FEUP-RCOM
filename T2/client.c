@@ -22,7 +22,7 @@ int connectSocket(char* ip, int port){
   /*server address handling*/
   bzero((char*)&server_addr,sizeof(server_addr));
   server_addr.sin_family = AF_INET;
-  server_addr.sin_addr.s_addr = inet_addr(ip_address);	/*32 bit Internet address network byte ordered*/
+  server_addr.sin_addr.s_addr = inet_addr(ip);	/*32 bit Internet address network byte ordered*/
   server_addr.sin_port = htons(port);		/*server TCP port must be network byte ordered */
 
   /*open an TCP socket*/
@@ -39,7 +39,7 @@ int connectSocket(char* ip, int port){
   return socketfd;
 }
 
-int download(ftpInfo ftp, urlInfo url){
+int download(FTPInfo ftp, urlInfo url){
   FILE* file;
 
   if(!(file = fopen(url.fileName, "w"))) {
@@ -69,7 +69,36 @@ int download(ftpInfo ftp, urlInfo url){
   return 0;
 }
 
-int endConnection(ftpInfo ftp){
+int socketRead(int socketfd, char* repply){
+  FILE* fp = fdopen(socketfd, "r");
+  int allocated = 0;
+
+  if(repply == NULL){
+    repply = (char*) malloc(sizeof(char) * MAX_SIZE);
+    allocated = 1;
+  }
+
+  do {
+    memset(repply, 0, MAX_SIZE);
+    repply = fgets(repply, MAX_SIZE, fp);
+    printf("<%s", repply);
+  } while (!('1' <= repply[0] && repply[0] <= '5') || repply[3] != ' ');
+
+  char r0= repply[0];
+
+  if(allocated)
+    free(repply);
+
+  return (r0>'4');
+}
+
+int socketWrite(int socketfd, char* cmd){
+
+    int ret = write(socketfd, cmd, strlen(cmd));
+    return ret;
+}
+
+int endConnection(FTPInfo ftp){
 
   printf("Closing connection\n");
   socketWrite(ftp.controlSocketFd,"QUIT\r\n");

@@ -5,7 +5,6 @@
 #include <netdb.h>
 #include <string.h>
 
-#include "parser.h"
 #include "client.h"
 
 #define PORT 21
@@ -19,7 +18,7 @@ int main(int argc, char** argv){
   }
 
   urlInfo url;
-  ftpInfo ftp;
+  FTPInfo ftp;
 
   if(parseUrl(argv[1], &url) != 0){
     fprintf(stderr, "Invalid URL\n");

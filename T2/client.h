@@ -1,14 +1,11 @@
-#include <string.h>
-#include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <regex.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <string.h>
+
+#include "parser.h"
 
 typedef struct {
 	int controlSocketFd; // file descriptor to control socket
@@ -16,6 +13,8 @@ typedef struct {
 } FTPInfo;
 
 int connectSocket(char* ip, int port);
-int initConnection(ftpInfo* ftp, char* ip, int port);
-int download(ftpInfo ftp, urlInfo url);
-int endConnection(ftpInfo ftp);
+int initConnection(FTPInfo* ftp, char* ip, int port);
+int download(FTPInfo ftp, urlInfo url);
+int socketRead(int socketfd, char* repply);
+int socketWrite(int socketfd, char* cmd);
+int endConnection(FTPInfo ftp);

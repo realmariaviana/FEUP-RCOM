@@ -11,8 +11,6 @@
 #include <strings.h>
 #include <termios.h>
 #include <fcntl.h>
-#include <regex.h>
-#include <errno.h>
 
 #define MAX_SIZE 256
 
@@ -27,4 +25,4 @@ typedef struct{
 
 int userPassword(urlInfo * infoStruct, char * completeUrl);
 int parseUrl(char completeUrl[], urlInfo * infoStruct);
-int getIp(urlInfo* infoStruct);
+int getIp(urlInfo * infoStruct);
