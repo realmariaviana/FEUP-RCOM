@@ -23,6 +23,6 @@ typedef struct{
   char  ip[MAX_SIZE];
 } urlInfo;
 
-int userPassword(urlInfo * infoStruct, char * completeUrl);
+int parseUsernamePassword(urlInfo * infoStruct, char * completeUrl);
 int parseUrl(char completeUrl[], urlInfo * infoStruct);
 int getIp(urlInfo * infoStruct);
